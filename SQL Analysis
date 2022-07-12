@@ -1,0 +1,75 @@
+%%sql
+SELECT DISTINCT d.dog_guid, d.dimension, COUNT(c.created_at) AS tests_completed
+FROM dogs d JOIN complete_tests c ON d.dog_guid=c.dog_guid
+GROUP BY d.dog_guid
+LIMIT 100
+
+%%sql
+SELECT dimension, AVG(dog_level.tests_completed)
+FROM(
+SELECT DISTINCT d.dog_guid, d.dimension, COUNT(c.created_at) AS tests_completed
+FROM dogs d JOIN complete_tests c ON d.dog_guid=c.dog_guid
+GROUP BY d.dog_guid) AS dog_level
+GROUP BY dimension
+
+%%sql
+SELECT dimension, AVG(numtests_per_dog.numtests) AS avg_tests_completed, COUNT(DISTINCT dogID)
+FROM (SELECT d.dog_guid AS dogID, d.dimension AS dimension, count(c.created_at)
+AS numtests
+FROM dogs d JOIN complete_tests c
+ON d.dog_guid=c.dog_guid
+WHERE (dimension IS NOT NULL AND dimension!='') AND (d.exclude IS NULL
+OR d.exclude=0)
+GROUP BY dogID) AS numtests_per_dog
+GROUP BY numtests_per_dog.dimension;
+
+%%sql
+SELECT breed_group, AVG(numtests_per_dog.numtests) AS avg_tests_completed, COUNT(DISTINCT dogID)
+FROM (SELECT d.dog_guid AS dogID, d.breed_group AS breed_group, count(c.created_at)
+AS numtests
+FROM dogs d JOIN complete_tests c
+ON d.dog_guid=c.dog_guid
+WHERE d.exclude IS NULL OR d.exclude=0
+GROUP BY dogID) AS numtests_per_dog
+GROUP BY numtests_per_dog.breed_group
+HAVING breed_group IN ('Sporting','Hound','Herding','Working');
+
+%%sql
+SELECT YEAR(c.created_at) AS year,
+CASE WHEN DAYOFWEEK(c.created_at) = 1 THEN "Sun"
+     WHEN DAYOFWEEK(c.created_at) = 2 THEN "Mon"
+     WHEN DAYOFWEEK(c.created_at) = 3 THEN "Tue"
+     WHEN DAYOFWEEK(c.created_at) = 4 THEN "Wed"
+     WHEN DAYOFWEEK(c.created_at) = 5 THEN "Thu"
+     WHEN DAYOFWEEK(c.created_at) = 6 THEN "Fri"
+     WHEN DAYOFWEEK(c.created_at) = 7 THEN "Sat"
+        END AS weekday,
+        COUNT(c.created_at) AS number_tests
+FROM
+(SELECT DISTINCT d.dog_guid
+FROM dogs d JOIN users u ON d.user_guid=u.user_guid
+WHERE (d.exclude = 0 OR d.exclude IS NULL) AND (u.exclude = 0 OR u.exclude IS NULL) AND (u.country="US") AND (u.state NOT IN ("HI","AK"))
+) AS unique_dogs
+JOIN complete_tests c ON c.dog_guid = unique_dogs.dog_guid
+GROUP BY year, weekday
+ORDER BY year ASC, number_tests DESC
+
+%%sql
+SELECT YEAR(DATE_SUB(c.created_at, INTERVAL 6 HOUR)) AS year,
+CASE WHEN DAYOFWEEK(DATE_SUB(c.created_at, INTERVAL 6 HOUR)) = 1 THEN "Sun"
+     WHEN DAYOFWEEK(DATE_SUB(c.created_at, INTERVAL 6 HOUR)) = 2 THEN "Mon"
+     WHEN DAYOFWEEK(DATE_SUB(c.created_at, INTERVAL 6 HOUR)) = 3 THEN "Tue"
+     WHEN DAYOFWEEK(DATE_SUB(c.created_at, INTERVAL 6 HOUR)) = 4 THEN "Wed"
+     WHEN DAYOFWEEK(DATE_SUB(c.created_at, INTERVAL 6 HOUR)) = 5 THEN "Thu"
+     WHEN DAYOFWEEK(DATE_SUB(c.created_at, INTERVAL 6 HOUR)) = 6 THEN "Fri"
+     WHEN DAYOFWEEK(DATE_SUB(c.created_at, INTERVAL 6 HOUR)) = 7 THEN "Sat"
+        END AS weekday,
+        COUNT(DATE_SUB(c.created_at, INTERVAL 6 HOUR)) AS number_tests
+FROM
+(SELECT DISTINCT d.dog_guid
+FROM dogs d JOIN users u ON d.user_guid=u.user_guid
+WHERE (d.exclude = 0 OR d.exclude IS NULL) AND (u.exclude = 0 OR u.exclude IS NULL) AND (u.country="US") AND (u.state NOT IN ("HI","AK"))
+) AS unique_dogs
+JOIN complete_tests c ON c.dog_guid = unique_dogs.dog_guid
+GROUP BY year, weekday
+ORDER BY year ASC, FIELD(weekday,"Sun","Mon","Tue","Wed","Thu","Fri","Sat")
